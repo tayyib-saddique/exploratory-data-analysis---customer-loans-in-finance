@@ -5,6 +5,7 @@ from pathlib import Path
 from matplotlib import pyplot as plt
 import missingno as msno
 import statsmodels.api as sm
+from scipy import stats
 import seaborn as sns
 import yaml
 
@@ -53,9 +54,25 @@ class DataFrameInfo():
         '''Returns all datatypes'''
         return self.df.dtypes
     
+    def count_nulls(self):
+        return self.df.isna().sum()
+    
+    def measure_skew(self):
+        return self.df.skew(numeric_only=True)
+
     def column_describe(self, col : pd.Series):
         '''Highlights basic descriptive statistics for a column'''
         return self.df[col].describe()
+    
+    def check_nulls(self, col : pd.Series):
+        if self.df[col].isna().sum() != 0:
+            return True
+        return False
+    
+    def check_skew_col(self, col : pd.Series):
+        if self.df[col].skew() > 1:
+            return True
+        return False
 
     def count_nulls_in_columns(self, col :pd.Series):
         '''Returns the total count of NaN values in a column'''
@@ -74,7 +91,7 @@ class DataFrameInfo():
         lower_bound = Q1 + (IQR*1.5)
         outliers = np.where((self.df[col] < lower_bound) | (self.df[col] > upper_bound))[0]
         return outliers
-
+    
 class DataTransform():
     def __init__(self, df : pd.DataFrame):
         self.df = df
@@ -102,11 +119,22 @@ class DataFrameTransform():
         self.df[col].fillna(median, inplace= True)
         return self.df[col]
     
+    def remove_NaN(self, col: pd.Series):
+        return self.df[col].dropna()
+    
     def log_transform(self, col: pd.Series):
         '''Transforms distribution of data using log transformation'''
-        new_col = self.df[col].map(lambda i: np.log(i) if i > 0.0 else 0.0)
-        return self.df[new_col]
+        self.df[col] = self.df[col].map(lambda i: np.log(i) if float(i) > 0.0 else 0.0)
+        return self.df[col]
     
+    def box_cox_transform(self, col: pd.Series):
+        '''Performes Box-Cox transformation'''
+        return stats.boxcox(self.df[col])
+        
+    def yeo_johnson_transform(self, col: pd.Series):
+        '''Performes Yeo-Johnson transformation'''
+        return stats.yeojohnson(self.df[col])
+
     def remove_outliers(self, col: pd.Series):
         '''Removes any outliers from dataframe'''
         outliers = DataFrameInfo.outliers_in_columns(self, col)
@@ -158,8 +186,8 @@ class Plotter():
         transformed_data = DataFrameTransform.remove_outliers(self, col)
         axs[1].boxplot(transformed_data)
         
-        axs[0].set_title('Original Data')
-        axs[1].set_title('Transformed Data')
+        axs[0].set_title(f'Original Data - {col}')
+        axs[1].set_title(f'Transformed Data - {col}')
         return fig, axs
     
     def visualise_correlation_matrix(self):
@@ -172,4 +200,5 @@ if __name__ == "__main__":
     db_connector = RDSDatabaseConnector(credentials)
     df_loan_payments = db_connector.create_df_from_database('loan_payments')
     db_connector.to_csv(df_loan_payments)
-    data = pd.read_csv('loan_payments.csv') 
+    data = pd.read_csv('loan_payments.csv')
+
