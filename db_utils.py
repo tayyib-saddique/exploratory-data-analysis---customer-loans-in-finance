@@ -141,7 +141,7 @@ class DataFrameTransform():
         self.df = self.df.drop(outliers)
         return self.df[col]
     
-    def remove_correlated_columns(self, threshold = 0.95):
+    def remove_correlated_columns(self, threshold = 0.99):
         '''Removes any columns with a correlation threshold > 0.95 by default unless otherwise specified'''
         col_corr = set()
         corr_matrix = Plotter.visualise_correlation_matrix(self).abs()
